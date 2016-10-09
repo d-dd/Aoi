@@ -1,0 +1,11 @@
+[irc]
+network =
+port = 
+ssl = 
+
+[cytube]
+channel = 
+username = 
+pw =
+
+
