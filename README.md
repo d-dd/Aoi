@@ -22,3 +22,19 @@ Autobahn
 Cryptography    
 pyOpenSSL  
 service-identity
+
+
+## Manhole
+````
+telnet localhost 8181
+````
+Username/Password is defined in pw.txt  
+The top parent service is `service`.  
+
+Example usage to disconnect cytube service.
+````
+>>>service.getServiceNamed('cy').f.con.sendClose()
+````
+`f` is WsFactory instance  
+`con` is the protocol instance  
+
