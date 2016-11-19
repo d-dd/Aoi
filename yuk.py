@@ -4,6 +4,9 @@
 import os, sys
 sys.path.append(os.getcwd())
 
+from twisted.python.log import ILogObserver, FileLogObserver
+from twisted.python.logfile import DailyLogFile
+
 from ircclient import IrcService
 from cyclient import WSService
 from twisted.application import service, internet
@@ -11,40 +14,39 @@ from twisted.web import static, server
 from twisted.internet.defer import Deferred
 cwd = os.getcwd()
 
-# Create MultiService, and hook up WebService and Manhole server to it
 class BotService(service.MultiService):
-        def __init__(self):
-            super(BotService, self).__init__()
+    def __init__(self):
+        super(BotService, self).__init__()
+        self.irc = None
+        self.cy = None
+
+    def recIrcMsg(self, msg):
+        print "received IRC message to relay"
+
+    def cleanup(self):
+        """
+        Prepares for shutdown.
+        Twisted will wait before exiting due to SystemEventTrigger.
+        First, disconnect from services (except manhole)
+        Let each service handle their own cleanup.
+        The `done` deferred will be fired when everyone is done.
+        """
+        self.done = Deferred()
+        self.getServiceNamed('cy').f.con.shutdown()
+
+        return self.done
+
+    def doneCleanup(self, con):
+        """
+        Called by services to notify that it is done with its own
+        clean up. When everyone is done, we fired the deferred.
+        """
+        if con == 'irc':
             self.irc = None
+        elif con == 'cy':
             self.cy = None
-
-        def recIrcMsg(self, msg):
-            print "received IRC message to relay"
-
-        def cleanup(self):
-            """
-            Prepares for shutdown.
-            Twisted will wait before exiting due to SystemEventTrigger.
-            First, disconnect from services (except manhole)
-            Let each service handle their own cleanup.
-            The `done` deferred will be fired when everyone is done.
-            """
-            self.done = Deferred()
-            self.getServiceNamed('cy').f.con.shutdown()
-
-            return self.done
-
-        def doneCleanup(self, con):
-            """
-            Called by services to notify that it is done with its own
-            clean up. When everyone is done, we fired the deferred.
-            """
-            if con == 'irc':
-                self.irc = None
-            elif con == 'cy':
-                self.cy = None
-            if not self.irc and not self.cy:
-                self.done.callback(None)
+        if not self.irc and not self.cy:
+            self.done.callback(None)
 
 
 topService = BotService()
@@ -64,7 +66,10 @@ ws_service.setName("cy")
 ws_service.setServiceParent(topService)
 
 # Create application
-application = service.Application("Yuk Yuk Top")
+application = service.Application("Aoi")
+#logfile = DailyLogFile("aoi.log", "logs")
+#application.setComponent(ILogObserver, FileLogObserver(logfile).emit)
+
 # Connect MultiService "topService" to the application
 topService.setServiceParent(application)
 
@@ -85,3 +90,4 @@ manhole_service.setName("manhole")
 manhole_service.setServiceParent(topService)
 from twisted.internet import reactor
 reactor.addSystemEventTrigger('before', 'shutdown', topService.cleanup)
+
